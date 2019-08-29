@@ -11,14 +11,16 @@ import com.fifthera.ecmall.ErrorCode;
 import com.fifthera.ecmall.JSApi;
 import com.fifthera.ecmall.OnApiResponseListener;
 
-import org.apache.commons.codec.binary.Hex;
-import org.apache.commons.codec.digest.DigestUtils;
+import java.util.HashMap;
+import java.util.Map;
+
 
 public class MallActivity extends AppCompatActivity {
     private Context mContext;
     private ECWebView mWebView;
     private JSApi mApi;
     private Button mButton;
+
     //用来控制使用测试服 or 正式服
     public static boolean isDebug = true;
 
@@ -36,7 +38,7 @@ public class MallActivity extends AppCompatActivity {
             public void fail(int i) {
                 //Token 失效的情况下需要重新授权
                 if (i == ErrorCode.TOKEN_FAIL) {
-                    loadUrl();
+                    mWebView.loadUrl(getAuthorityUrl());
                 }
             }
 
@@ -52,7 +54,13 @@ public class MallActivity extends AppCompatActivity {
 
             @Override
             public void consumeSuccess() {
+                //用户金币兑换淘礼金成功后后的回调
                 mWebView.refresh();
+            }
+
+            @Override
+            public void earnGold() {
+
             }
         });
 
@@ -64,50 +72,28 @@ public class MallActivity extends AppCompatActivity {
             }
         });
 
-        loadUrl();
+        mWebView.loadUrl(getAuthorityUrl());
     }
 
-    //sdk授权操作
 
-    private void loadUrl() {
-        // 用户id
-        String uid = "123456789";
-        //时间戳
-        long currnetTime = System.currentTimeMillis() / 1000;
-        //兜推流量主平台创建的福利商城 clientId和clientSecret，
-        String clientId = "xxxxxxxxxxxx";
-        String clientSecret = "xxxxxxxxxxxxx";
-        //获取sign
-        String sign = getSign(clientId, clientSecret, currnetTime, uid);
-        StringBuilder str = new StringBuilder();
-        if (isDebug) {
-            str.append("https://ec-api-test.thefifthera.com");
+    String getAuthorityUrl() {
+        Map<String, Object> map = new HashMap<>();
+        String uid = "xxxxxxxxxxxx";//用户的唯一id
+        String clientId = "xxxxxxxxxxxxxxx"; //兜推后台申请的clientId
+        String clientSecret = "xxxxxxxxxxxx"; //兜推后台申请的clientSecret
+        String token = "xxxxxxxxxxxxx"; //流量主服务端token，可根据实际情况决定是否需要此参数
+        long currentTime = System.currentTimeMillis() / 1000;
+        map.put("uid", uid);
+        map.put("timestamp", currentTime);
+        map.put("client_id", clientId);
+        map.put("type", "page.taolijin");
+        map.put("token", token);
+        if (mWebView != null) {
+            String url = mWebView.getAuthorityUrl(clientSecret, map, isDebug);
+            return url;
         } else {
-            str.append("https://ec-api.thefifthera.com");
+            return "";
         }
-        str.append("/h5/v1/auth/redirect?client_id=")
-                .append(clientId)
-                .append("&sign=")
-                .append(sign)
-                .append("&timestamp=")
-                .append(currnetTime)
-                .append("&uid=")
-                .append(uid)
-                .append("&type=page.taolijin");
-        String url = str.toString();
-        mWebView.loadUrl(url);
-    }
-
-    private String getSign(String clientId, String clientSecret, long currentTime, String uid) {
-        StringBuilder str = new StringBuilder();
-        str.append(clientSecret);
-        str.append("client_id").append(clientId)
-                .append("timestamp").append(currentTime)
-                .append("type").append("page.taolijin")
-                .append("uid").append(uid);
-        str.append(clientSecret);
-        String s = new String(Hex.encodeHex(DigestUtils.md5(str.toString())));
-        return s.toUpperCase();
     }
 
     @Override
